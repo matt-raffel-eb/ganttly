@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
+import '../io/app_settings.dart';
 import '../io/project_file.dart';
 import '../state/project_controller.dart';
 import 'gantt/gantt_painter.dart';
@@ -12,12 +13,14 @@ const _projectTypes = [
   XTypeGroup(label: 'Ganttly project', extensions: [ProjectFile.extension], uniformTypeIdentifiers: ['public.json', 'public.data']),
 ];
 
-/// New, Open, Save, Save As and Export PNG, with the dialogs they need.
+/// New, Open, Save, Save As and Export PNG, with the dialogs they need. A
+/// project opened or saved becomes the one the app reopens next time.
 class FileActions {
-  FileActions(this.context, this.controller);
+  FileActions(this.context, this.controller, {this.settings});
 
   final BuildContext context;
   final ProjectController controller;
+  final AppSettings? settings;
 
   Future<void> newProject() async {
     if (await _okToDiscard()) controller.newProject();
@@ -29,6 +32,7 @@ class FileActions {
     if (file == null) return;
     try {
       controller.opened(ProjectFile.decode(await file.readAsString()), file.path);
+      settings?.rememberProject(file.path);
     } on ProjectFileException catch (e) {
       _error('Couldn\'t open ${file.name}', e.message);
     } on FileSystemException catch (e) {
@@ -59,6 +63,7 @@ class FileActions {
     try {
       await File(path).writeAsString(ProjectFile.encode(controller.project));
       controller.saved(path);
+      settings?.rememberProject(path);
       return true;
     } on FileSystemException catch (e) {
       _error('Couldn\'t save', e.message);
@@ -66,7 +71,11 @@ class FileActions {
     }
   }
 
-  Future<void> exportPng(double dayWidth) async {
+  /// Asks which zoom to export at (standard 100% by default, or the zoom on
+  /// screen), then where to save the PNG.
+  Future<void> exportPng(double screenDayWidth) async {
+    final dayWidth = await askExportZoom(context, screenDayWidth);
+    if (dayWidth == null) return;
     final location = await getSaveLocation(
       acceptedTypeGroups: const [XTypeGroup(label: 'PNG image', extensions: ['png'])],
       suggestedName: '${_safeName(controller.project.name)}.png',
@@ -121,4 +130,44 @@ class FileActions {
 String _safeName(String name) {
   final s = name.replaceAll(RegExp(r'[^\w\- ]'), '').trim();
   return s.isEmpty ? 'project' : s;
+}
+
+/// The export options: Standard (100%) or As on screen. Returns the day width
+/// to export at, or null if cancelled.
+Future<double?> askExportZoom(BuildContext context, double screenDayWidth) {
+  const standard = GanttLayout.defaultDayWidth;
+  String pct(double w) => '${(w / standard * 100).round()}%';
+  var useScreen = false;
+  return showDialog<double>(
+    context: context,
+    builder: (c) => StatefulBuilder(
+      builder: (c, setState) => AlertDialog(
+        title: const Text('Export chart as PNG'),
+        content: RadioGroup<bool>(
+          groupValue: useScreen,
+          onChanged: (v) => setState(() => useScreen = v ?? false),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Zoom'),
+            const RadioListTile<bool>(
+              value: false,
+              title: Text('Standard (100%)'),
+              subtitle: Text('The same every time, whatever the screen shows.'),
+            ),
+            RadioListTile<bool>(
+              value: true,
+              title: Text('As on screen (${pct(screenDayWidth)})'),
+              subtitle: const Text('The zoom you are using now.'),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, useScreen ? screenDayWidth : standard),
+            child: const Text('Export…'),
+          ),
+        ],
+      ),
+    ),
+  );
 }

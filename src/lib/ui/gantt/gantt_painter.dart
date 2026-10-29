@@ -8,7 +8,7 @@ import '../../model/project.dart';
 
 /// Sizes and the date range shared by the grid, the chart and the PNG export.
 class GanttLayout {
-  GanttLayout(this.schedule, {this.dayWidth = 22, DateTime? today})
+  GanttLayout(this.schedule, {this.dayWidth = defaultDayWidth, DateTime? today})
       : today = dateOnly(today ?? DateTime.now()) {
     final s = schedule;
     var first = s.start;
@@ -21,6 +21,9 @@ class GanttLayout {
     rangeStart = first;
     days = last.difference(first).inDays + 1;
   }
+
+  /// Pixels per day at 100% zoom: the screen's default, and the standard PNG export.
+  static const double defaultDayWidth = 22;
 
   static const double rowHeight = 28;
   static const double headerHeight = 44;

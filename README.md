@@ -31,7 +31,7 @@ To use Flutter directly: `cd src && fvm flutter <command>`.
 
 ## Using it
 
-The app opens with a sample plan, "Website relaunch". It's an ordinary `.ganttly` file bundled with the app (`src/assets/samples/`); New starts an empty project.
+The app reopens the last project you opened or saved. On a first start (or if that file has been moved or deleted) it shows a sample plan, "Website relaunch", an ordinary `.ganttly` file bundled with the app (`src/assets/samples/`). New starts an empty project.
 
 - **Grid:** click a cell to edit; Enter or clicking away saves it. An invalid entry flashes red and goes back.
   - **Days:** working days. `0` makes a milestone.
@@ -41,6 +41,7 @@ The app opens with a sample plan, "Website relaunch". It's an ordinary `.ganttly
 - **Chart:** bars skip weekends and holidays; summaries are dark brackets; milestones are diamonds; arrows show links; the dotted line is today; the red column is the deadline. Click a row to select it.
   - **Scroll:** up and down with the wheel; sideways with the scrollbar at the bottom, the wheel over the date header, Shift + wheel, or a trackpad swipe.
   - **Zoom:** the toolbar's − / + buttons (the percentage between them resets to 100%), ⌘ + scroll wheel over the chart (zooms where the pointer is), or Fit to see the whole plan.
+- **Export PNG** (picture icon, ⌘E): the whole chart with a title and task table. It asks which zoom to use: **Standard (100%)**, the default, so every export looks the same, or **As on screen**.
 - **Project settings** (sliders icon): name, start date, deadline, holidays.
 
 Shortcuts (⌘ on macOS, Ctrl elsewhere): N new, O open, S save, ⇧S save as, E export PNG, Z / ⇧Z undo / redo, Enter add task below, ] / [ indent / outdent, ⇧↑ / ⇧↓ move, ⌫ delete, = / − zoom, 0 zoom to 100%.

@@ -14,7 +14,7 @@ One rule shapes the app: **the project is the single source of truth, and everyt
 |---|---|---|
 | `model/` | `Project`, `Task`, `Dependency`: what the user entered. Immutable; dates are UTC midnight. `sample_project.dart` loads the start-up example, a bundled `.ganttly` file (`src/assets/samples/`). | nothing |
 | `engine/` | `WorkCalendar` (working-day maths, like Excel's WORKDAY/NETWORKDAYS) and `computeSchedule()` (every task's start and finish). Pure Dart, no Flutter. | `model` |
-| `io/` | `ProjectFile`: the `.ganttly` JSON format, versioned. | `model` |
+| `io/` | `ProjectFile`: the `.ganttly` JSON format, versioned. `AppSettings`: a small `settings.json` per user (the last project, reopened on start-up by `startup.dart`). | `model` |
 | `state/` | `ProjectController` (`ChangeNotifier`): the open project, the computed schedule, selection, undo/redo (whole-project snapshots, up to 200), unsaved-changes flag, and the edit operations (add, delete, indent, move…). | `model`, `engine` |
 | `ui/` | The window (`home_page.dart`), the task grid, the chart painters, PNG export, file dialogs, project settings. | all of the above |
 
@@ -40,6 +40,7 @@ Only `file_selector` (official, from the Flutter team) for the open and save dia
 
 ## Platform notes
 
-- macOS: minimum 12.0. The app is sandboxed and has the "user-selected read-write" file permission so the open and save dialogs work.
+- macOS: minimum 12.0. The App Sandbox is **off**, so the app can reopen the last project after a restart (a sandboxed app may only read a file in the session the user picked it, unless it stores security-scoped bookmarks). A Mac App Store release would need the sandbox back on, plus bookmarks.
+- Settings live in `~/Library/Application Support/Ganttly/settings.json` (macOS), `%APPDATA%\Ganttly` (Windows) or `~/.config/ganttly` (Linux).
 - macOS release builds are **Apple Silicon (arm64) only** for now: `ARCHS = arm64` in the project's Release and Profile settings (`src/macos/Runner.xcodeproj`). Flutter 3.44 checks the framework with `lipo -verify_arch arm64 x86_64`, and Xcode 27's `lipo` accepts only one architecture there, so a universal build fails ("does not contain architectures"). Remove the two `ARCHS = arm64` lines once Flutter fixes this, to get Intel support back. Debug builds were never affected (they build for this Mac only).
 - Window: 1440 × 860 by default (macOS, Windows, Linux runners).
