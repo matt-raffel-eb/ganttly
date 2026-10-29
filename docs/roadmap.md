@@ -10,6 +10,7 @@
 - Chart scrolling both ways with always-visible scrollbars; zoom (buttons, ⌘ + wheel around the pointer, Fit, 100%).
 - The sample project is a bundled `.ganttly` file, loaded like any project.
 - Reopens the last project opened or saved; the sample on a first start.
+- PNG export asks for the zoom: Standard (100%, default) or as on screen.
 
 ## Next
 

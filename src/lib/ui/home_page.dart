@@ -35,7 +35,7 @@ class _HomePageState extends State<HomePage> {
   bool _syncing = false;
 
   /// Zoom: pixels per day. 100% is [_defaultDayWidth].
-  static const double _defaultDayWidth = 22, _minDayWidth = 4, _maxDayWidth = 64;
+  static const double _defaultDayWidth = GanttLayout.defaultDayWidth, _minDayWidth = 4, _maxDayWidth = 64;
   double _dayWidth = _defaultDayWidth;
 
   ProjectController get c => widget.controller;
