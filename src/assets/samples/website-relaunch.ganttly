@@ -1,0 +1,34 @@
+{
+  "format": "ganttly",
+  "version": 1,
+  "name": "Website relaunch",
+  "start": "2026-11-02",
+  "deadline": "2026-12-18",
+  "holidays": [
+    "2026-11-26",
+    "2026-11-27",
+    "2026-12-25"
+  ],
+  "tasks": [
+    { "id": 1, "name": "Discovery", "duration": 1 },
+    { "id": 2, "name": "Stakeholder interviews", "duration": 3, "level": 1 },
+    { "id": 3, "name": "Audit the current site", "duration": 2, "level": 1 },
+    { "id": 4, "name": "Requirements signed off", "duration": 0, "level": 1, "dependsOn": [2, 3] },
+    { "id": 5, "name": "Design", "duration": 1 },
+    { "id": 6, "name": "Information architecture", "duration": 3, "level": 1, "dependsOn": [4] },
+    { "id": 7, "name": "Visual design", "duration": 5, "level": 1, "dependsOn": [6] },
+    { "id": 8, "name": "Design approved", "duration": 0, "level": 1, "dependsOn": [7] },
+    { "id": 9, "name": "Build", "duration": 1 },
+    { "id": 10, "name": "Set up hosting and CI", "duration": 2, "level": 1, "dependsOn": [4] },
+    { "id": 11, "name": "Page templates and components", "duration": 8, "level": 1, "dependsOn": [8] },
+    { "id": 12, "name": "CMS integration", "duration": 4, "level": 1, "dependsOn": [11] },
+    { "id": 13, "name": "Content", "duration": 1 },
+    { "id": 14, "name": "Write and edit copy", "duration": 8, "level": 1, "dependsOn": [6] },
+    { "id": 15, "name": "Migrate content", "duration": 3, "level": 1, "dependsOn": [12, 14] },
+    { "id": 16, "name": "Launch", "duration": 1 },
+    { "id": 17, "name": "QA and accessibility review", "duration": 4, "level": 1, "dependsOn": [15] },
+    { "id": 18, "name": "Fix issues", "duration": 3, "level": 1, "dependsOn": [17] },
+    { "id": 19, "name": "Go live", "duration": 0, "level": 1, "dependsOn": [18] },
+    { "id": 20, "name": "Launch announcement", "duration": 1, "level": 1, "dependsOn": [19] }
+  ]
+}
