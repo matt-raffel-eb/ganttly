@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../io/app_settings.dart';
 import '../state/project_controller.dart';
 import 'file_actions.dart';
 import 'gantt/gantt_painter.dart';
@@ -12,9 +13,15 @@ import 'task_grid.dart';
 
 /// The main window: toolbar, project summary, task grid and Gantt chart.
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, required this.controller});
+  const HomePage({super.key, required this.controller, this.settings, this.startupNotice});
 
   final ProjectController controller;
+
+  /// Remembers the last project for the next start; null in tests.
+  final AppSettings? settings;
+
+  /// Shown once the window is up (e.g. the last project couldn't be reopened).
+  final String? startupNotice;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -48,6 +55,12 @@ class _HomePageState extends State<HomePage> {
 
     sync(_gridScroll, _chartScroll);
     sync(_chartScroll, _gridScroll);
+    final notice = widget.startupNotice;
+    if (notice != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(notice), duration: const Duration(seconds: 8)));
+      });
+    }
     // The date header follows the chart sideways.
     _chartHScroll.addListener(() {
       if (_headerHScroll.hasClients) _headerHScroll.jumpTo(_chartHScroll.offset.clamp(0, _headerHScroll.position.maxScrollExtent));
@@ -63,7 +76,7 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  FileActions get _files => FileActions(context, c);
+  FileActions get _files => FileActions(context, c, settings: widget.settings);
 
   void _zoom(double by, {double? anchorX}) => _setDayWidth(_dayWidth * by, anchorX: anchorX);
 

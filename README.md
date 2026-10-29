@@ -31,7 +31,7 @@ To use Flutter directly: `cd src && fvm flutter <command>`.
 
 ## Using it
 
-The app opens with a sample plan, "Website relaunch". It's an ordinary `.ganttly` file bundled with the app (`src/assets/samples/`); New starts an empty project.
+The app reopens the last project you opened or saved. On a first start (or if that file has been moved or deleted) it shows a sample plan, "Website relaunch", an ordinary `.ganttly` file bundled with the app (`src/assets/samples/`). New starts an empty project.
 
 - **Grid:** click a cell to edit; Enter or clicking away saves it. An invalid entry flashes red and goes back.
   - **Days:** working days. `0` makes a milestone.

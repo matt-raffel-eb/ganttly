@@ -9,11 +9,12 @@
 - PNG export of the whole chart with a title and task table.
 - Chart scrolling both ways with always-visible scrollbars; zoom (buttons, ⌘ + wheel around the pointer, Fit, 100%).
 - The sample project is a bundled `.ganttly` file, loaded like any project.
+- Reopens the last project opened or saved; the sample on a first start.
 
 ## Next
 
 1. **Ask before closing with unsaved changes** (window close button). Needs a window-close hook (e.g. the `window_manager` package or a small platform channel).
-2. **Recent files and reopen the last project** on start-up, instead of always the sample.
+2. **A recent-files list** (File menu or a toolbar drop-down).
 3. **Drag in the chart:** move a bar to pin its start, drag its end to change the duration, drag from one bar to another to link them.
 4. **Collapse and expand summaries** in the grid and chart.
 5. **Notes and % complete** in the grid (the model and file already have them).
