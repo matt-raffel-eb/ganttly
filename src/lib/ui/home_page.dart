@@ -32,7 +32,17 @@ class _HomePageState extends State<HomePage> {
   final _chartScroll = ScrollController();
   final _chartHScroll = ScrollController();
   final _headerHScroll = ScrollController();
+  final _gridHScroll = ScrollController();
   bool _syncing = false;
+
+  /// The grid's column widths, and the grid's width set with the divider
+  /// (null: as wide as its columns). Both are kept in the settings.
+  late GridColumns _columns = GridColumns.fromJson(widget.settings?.gridColumns);
+  late double? _gridWidth = widget.settings?.gridWidth;
+  static const double _minChartWidth = 200, _minGridWidth = 120, _dividerWidth = 5;
+
+  /// The grid's width and its limits in the last layout, for the divider drag.
+  double _paneWidth = 0, _paneMin = 0, _paneMax = 0;
 
   /// Zoom: pixels per day. 100% is [_defaultDayWidth].
   static const double _defaultDayWidth = GanttLayout.defaultDayWidth, _minDayWidth = 4, _maxDayWidth = 64;
@@ -73,7 +83,25 @@ class _HomePageState extends State<HomePage> {
     _chartScroll.dispose();
     _chartHScroll.dispose();
     _headerHScroll.dispose();
+    _gridHScroll.dispose();
     super.dispose();
+  }
+
+  void _saveGrid() => widget.settings?.rememberGrid(columns: _columns.toJson(), width: _gridWidth);
+
+  void _resizeColumn(GridColumn col, double width) => setState(() => _columns = _columns.resized(col, width));
+
+  void _dragDivider(double start, double dx) => setState(() => _gridWidth = (start + dx).clamp(_paneMin, _paneMax));
+
+  /// A divider dragged out to the columns' full width follows the columns again.
+  void _dividerDone() {
+    if (_gridWidth != null && _gridWidth! >= _columns.width - 0.5) setState(() => _gridWidth = null);
+    _saveGrid();
+  }
+
+  void _fitGridToColumns() {
+    setState(() => _gridWidth = null);
+    _saveGrid();
   }
 
   FileActions get _files => FileActions(context, c, settings: widget.settings);
@@ -193,78 +221,106 @@ class _HomePageState extends State<HomePage> {
   Widget _gridAndChart(GanttLayout layout) {
     final rows = c.project.tasks.length;
     const bottomRoom = GanttLayout.rowHeight * 4;
-    return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      SizedBox(
-        width: GridColumns.width,
-        child: Column(children: [
-          const TaskGridHeader(),
-          Expanded(
+    final noScrollbars = ScrollConfiguration.of(context).copyWith(scrollbars: false);
+    return LayoutBuilder(builder: (context, window) {
+      // The chart keeps at least _minChartWidth. The grid gets the rest, up to
+      // its columns' width; columns wider than the grid scroll sideways.
+      final cols = _columns.width;
+      final room = window.maxWidth - _dividerWidth - _minChartWidth;
+      _paneMin = cols < _minGridWidth ? cols : _minGridWidth;
+      _paneMax = room < _paneMin ? _paneMin : (room < cols ? room : cols);
+      _paneWidth = (_gridWidth ?? cols).clamp(_paneMin, _paneMax);
+      return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        SizedBox(
+          width: _paneWidth,
+          child: Scrollbar(
+            controller: _gridHScroll,
+            thumbVisibility: cols > _paneWidth,
+            notificationPredicate: (n) => n.depth == 0 && n.metrics.axis == Axis.horizontal,
             child: ScrollConfiguration(
-              behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-              child: ListView.builder(
-                controller: _gridScroll,
-                itemExtent: GanttLayout.rowHeight,
-                itemCount: rows + 4,
-                itemBuilder: (context, i) => i < rows
-                    ? TaskGridRow(key: ValueKey(c.project.tasks[i].id), controller: c, index: i)
-                    : (i == rows
-                        ? Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextButton.icon(
-                              onPressed: () => c.addTask(after: rows == 0 ? null : rows - 1),
-                              icon: const Icon(Icons.add, size: 16),
-                              label: const Text('Add task'),
-                            ),
-                          )
-                        : const SizedBox.shrink()),
-              ),
-            ),
-          ),
-        ]),
-      ),
-      const VerticalDivider(width: 1, color: GanttColors.weekLine),
-      Expanded(
-        child: LayoutBuilder(builder: (context, box) {
-          // At least as tall as the window, so the shading reaches the bottom.
-          final viewportHeight = box.maxHeight - GanttLayout.headerHeight;
-          final bodyHeight = (layout.rowsHeight + bottomRoom) > viewportHeight ? layout.rowsHeight + bottomRoom : viewportHeight;
-          return Column(children: [
-            // The date header: pinned at the top, follows the chart sideways.
-            Listener(
-              onPointerSignal: (e) => _onChartSignal(e, header: true),
-              child: SizedBox(
-                height: GanttLayout.headerHeight,
-                child: SingleChildScrollView(
-                  controller: _headerHScroll,
-                  scrollDirection: Axis.horizontal,
-                  physics: const NeverScrollableScrollPhysics(),
-                  child: CustomPaint(size: Size(layout.width, GanttLayout.headerHeight), painter: GanttHeaderPainter(layout)),
+              behavior: noScrollbars,
+              child: SingleChildScrollView(
+                key: const ValueKey('grid-hscroll'),
+                controller: _gridHScroll,
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: cols,
+                  child: Column(children: [
+                    TaskGridHeader(columns: _columns, maxGrowth: room - cols, onResize: _resizeColumn, onResizeEnd: _saveGrid),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: _gridScroll,
+                        itemExtent: GanttLayout.rowHeight,
+                        itemCount: rows + 4,
+                        itemBuilder: (context, i) => i < rows
+                            ? TaskGridRow(key: ValueKey(c.project.tasks[i].id), controller: c, index: i, columns: _columns)
+                            : (i == rows
+                                ? Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: TextButton.icon(
+                                      onPressed: () => c.addTask(after: rows == 0 ? null : rows - 1),
+                                      icon: const Icon(Icons.add, size: 16),
+                                      label: const Text('Add task'),
+                                    ),
+                                  )
+                                : const SizedBox.shrink()),
+                      ),
+                    ),
+                  ]),
                 ),
               ),
             ),
-            // The rows: scroll both ways, with both scrollbars always shown at
-            // the window's edges.
-            Expanded(
-              child: Scrollbar(
-                controller: _chartScroll,
-                thumbVisibility: true,
-                child: Scrollbar(
-                  controller: _chartHScroll,
-                  thumbVisibility: true,
-                  trackVisibility: true,
-                  notificationPredicate: (n) => n.depth == 1 && n.metrics.axis == Axis.horizontal,
+          ),
+        ),
+        // Drag to give the grid or the chart more room; double-click to fit the columns.
+        SizedBox(
+          key: const ValueKey('grid-divider'),
+          width: _dividerWidth,
+          child: ResizeHandle(onStart: () => _paneWidth, onDrag: _dragDivider, onEnd: _dividerDone, onDoubleTap: _fitGridToColumns),
+        ),
+        Expanded(
+          child: LayoutBuilder(builder: (context, box) {
+            // At least as tall as the window, so the shading reaches the bottom.
+            final viewportHeight = box.maxHeight - GanttLayout.headerHeight;
+            final bodyHeight = (layout.rowsHeight + bottomRoom) > viewportHeight ? layout.rowsHeight + bottomRoom : viewportHeight;
+            return Column(children: [
+              // The date header: pinned at the top, follows the chart sideways.
+              Listener(
+                onPointerSignal: (e) => _onChartSignal(e, header: true),
+                child: SizedBox(
+                  height: GanttLayout.headerHeight,
                   child: SingleChildScrollView(
-                    controller: _chartScroll,
+                    controller: _headerHScroll,
+                    scrollDirection: Axis.horizontal,
+                    physics: const NeverScrollableScrollPhysics(),
+                    child: CustomPaint(size: Size(layout.width, GanttLayout.headerHeight), painter: GanttHeaderPainter(layout)),
+                  ),
+                ),
+              ),
+              // The rows: scroll both ways, with both scrollbars always shown at
+              // the window's edges.
+              Expanded(
+                child: Scrollbar(
+                  controller: _chartScroll,
+                  thumbVisibility: true,
+                  child: Scrollbar(
+                    controller: _chartHScroll,
+                    thumbVisibility: true,
+                    trackVisibility: true,
+                    notificationPredicate: (n) => n.depth == 1 && n.metrics.axis == Axis.horizontal,
                     child: SingleChildScrollView(
-                      controller: _chartHScroll,
-                      scrollDirection: Axis.horizontal,
-                      child: Listener(
-                        onPointerSignal: (e) => _onChartSignal(e, header: false),
-                        child: GestureDetector(
-                          onTapDown: (d) => c.select((d.localPosition.dy / GanttLayout.rowHeight).floor()),
-                          child: CustomPaint(
-                            size: Size(layout.width, bodyHeight),
-                            painter: GanttBodyPainter(layout, selected: c.selected, minHeight: viewportHeight),
+                      controller: _chartScroll,
+                      child: SingleChildScrollView(
+                        controller: _chartHScroll,
+                        scrollDirection: Axis.horizontal,
+                        child: Listener(
+                          onPointerSignal: (e) => _onChartSignal(e, header: false),
+                          child: GestureDetector(
+                            onTapDown: (d) => c.select((d.localPosition.dy / GanttLayout.rowHeight).floor()),
+                            child: CustomPaint(
+                              size: Size(layout.width, bodyHeight),
+                              painter: GanttBodyPainter(layout, selected: c.selected, minHeight: viewportHeight),
+                            ),
                           ),
                         ),
                       ),
@@ -272,11 +328,11 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-            ),
-          ]);
-        }),
-      ),
-    ]);
+            ]);
+          }),
+        ),
+      ]);
+    });
   }
 }
 
