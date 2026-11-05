@@ -168,10 +168,25 @@ class GanttBodyPainter extends CustomPainter {
       final colour = GanttColors.palette[math.max(block, 0) % GanttColors.palette.length];
       final d = s[t.id];
       final y = r * GanttLayout.rowHeight;
+      final cy = y + GanttLayout.rowHeight / 2;
+      // Status (leaves only): Done gets a tick after the bar; Cancelled is a
+      // dashed outline with no fill.
+      final status = d.isSummary ? TaskStatus.notStarted : t.status;
+      final done = status == TaskStatus.done, cancelled = status == TaskStatus.cancelled;
       if (d.isMilestone) {
-        _diamond(canvas, Offset(l.x(d.start) + l.dayWidth / 2, y + GanttLayout.rowHeight / 2), 6,
-            d.problem != null ? GanttColors.problem : colour);
-        _text(canvas, t.name, Offset(l.x(d.start) + l.dayWidth / 2 + 10, y + 8), 10, color: GanttColors.muted);
+        final c = Offset(l.x(d.start) + l.dayWidth / 2, cy);
+        final mColour = d.problem != null ? GanttColors.problem : colour;
+        if (cancelled) {
+          _dashed(canvas, _diamondPath(c, 6), GanttColors.muted);
+        } else {
+          _diamond(canvas, c, 6, mColour);
+        }
+        var textX = c.dx + 10;
+        if (done) {
+          _tick(canvas, Offset(textX, cy));
+          textX += 13;
+        }
+        _text(canvas, t.name, Offset(textX, y + 8), 10, color: GanttColors.muted);
         continue;
       }
       final left = l.x(d.start);
@@ -192,12 +207,17 @@ class GanttBodyPainter extends CustomPainter {
       } else {
         // Working-day segments only, so a bar breaks over weekends and holidays.
         final rrect = RRect.fromRectAndRadius(Rect.fromLTRB(left, y + 6, right, y + GanttLayout.rowHeight - 6), const Radius.circular(3));
-        canvas.drawRRect(rrect, Paint()..color = colour.withValues(alpha: 0.28));
-        for (var day = d.start; !day.isAfter(d.finish); day = day.add(const Duration(days: 1))) {
-          if (!s.calendar.isWorkday(day)) continue;
-          canvas.drawRect(Rect.fromLTWH(l.x(day), y + 6, l.dayWidth, GanttLayout.rowHeight - 12), Paint()..color = colour);
+        if (cancelled) {
+          _dashed(canvas, Path()..addRRect(rrect), GanttColors.muted);
+        } else {
+          canvas.drawRRect(rrect, Paint()..color = colour.withValues(alpha: 0.28));
+          for (var day = d.start; !day.isAfter(d.finish); day = day.add(const Duration(days: 1))) {
+            if (!s.calendar.isWorkday(day)) continue;
+            canvas.drawRect(Rect.fromLTWH(l.x(day), y + 6, l.dayWidth, GanttLayout.rowHeight - 12), Paint()..color = colour);
+          }
         }
-        if (t.percentComplete > 0) {
+        if (done) _tick(canvas, Offset(right + 4, cy));
+        if (t.percentComplete > 0 && !done && !cancelled) {
           final w = (right - left) * t.percentComplete / 100;
           canvas.drawRect(Rect.fromLTWH(left, y + 12, w, 4), Paint()..color = Colors.black.withValues(alpha: 0.35));
         }
@@ -280,16 +300,40 @@ class GanttBodyPainter extends CustomPainter {
       old.minHeight != minHeight;
 }
 
-void _diamond(Canvas canvas, Offset c, double r, Color colour) {
-  canvas.drawPath(
-    Path()
-      ..moveTo(c.dx, c.dy - r)
-      ..lineTo(c.dx + r, c.dy)
-      ..lineTo(c.dx, c.dy + r)
-      ..lineTo(c.dx - r, c.dy)
-      ..close(),
-    Paint()..color = colour,
-  );
+Path _diamondPath(Offset c, double r) => Path()
+  ..moveTo(c.dx, c.dy - r)
+  ..lineTo(c.dx + r, c.dy)
+  ..lineTo(c.dx, c.dy + r)
+  ..lineTo(c.dx - r, c.dy)
+  ..close();
+
+void _diamond(Canvas canvas, Offset c, double r, Color colour) => canvas.drawPath(_diamondPath(c, r), Paint()..color = colour);
+
+/// A small tick starting at [at] (its left end, centred vertically): done.
+void _tick(Canvas canvas, Offset at) => canvas.drawPath(
+      Path()
+        ..moveTo(at.dx, at.dy)
+        ..lineTo(at.dx + 3, at.dy + 3)
+        ..lineTo(at.dx + 9, at.dy - 4),
+      Paint()
+        ..color = GanttColors.done
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+
+/// [path] as a dashed line: a cancelled task.
+void _dashed(Canvas canvas, Path path, Color colour) {
+  final paint = Paint()
+    ..color = colour
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.2;
+  for (final m in path.computeMetrics()) {
+    for (var d = 0.0; d < m.length; d += 7) {
+      canvas.drawPath(m.extractPath(d, math.min(d + 4, m.length)), paint);
+    }
+  }
 }
 
 const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
