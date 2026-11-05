@@ -12,7 +12,7 @@ UTF-8 JSON. It stores only what the user entered; start and finish dates are wor
   "holidays": ["2026-11-26", "2026-11-27"],
   "tasks": [
     { "id": 1, "name": "Discovery", "duration": 1 },
-    { "id": 2, "name": "Stakeholder interviews", "duration": 3, "level": 1, "startNoEarlierThan": "2026-11-02" },
+    { "id": 2, "name": "Stakeholder interviews", "duration": 3, "level": 1, "startNoEarlierThan": "2026-11-02", "status": "done" },
     { "id": 3, "name": "Requirements signed off", "duration": 0, "level": 1, "dependsOn": [2] },
     { "id": 4, "name": "Design", "duration": 5, "dependsOn": [{ "id": 3, "lag": 2 }] }
   ]
@@ -36,5 +36,6 @@ UTF-8 JSON. It stores only what the user entered; start and finish dates are wor
 | `tasks[].startNoEarlierThan` | | `YYYY-MM-DD`. A pinned earliest start. |
 | `tasks[].percentComplete` | | 0–100. Drawn as a dark line inside the bar. |
 | `tasks[].notes` | | Free text. |
+| `tasks[].status` | | `notStarted` (default), `started`, `done` or `cancelled`. Any other value reads as `notStarted`. Ignored for summaries, whose status comes from the tasks under them. |
 
 Fields with default values are left out when saving. Unknown fields are ignored when loading.

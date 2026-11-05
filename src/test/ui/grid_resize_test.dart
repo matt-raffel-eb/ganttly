@@ -95,11 +95,11 @@ void main() {
 
   testWidgets('when the window gets narrower the chart keeps 200 px and the grid scrolls', (tester) async {
     await pumpApp(tester);
-    await drag(tester, find.byKey(const ValueKey('resize-name')), 600);
+    await drag(tester, find.byKey(const ValueKey('resize-name')), 500);
     tester.view.physicalSize = const Size(1500, 1000);
     await tester.pumpAndSettle();
     expect(chartLeft(tester), 1500 - 200);
-    expect(gridHScroll(tester).maxScrollExtent, 1310 - (1500 - 200 - 5));
+    expect(gridHScroll(tester).maxScrollExtent, GridColumns.defaults.width + 500 - (1500 - 200 - 5));
   });
 
   testWidgets('saved widths come back on the next start', (tester) async {

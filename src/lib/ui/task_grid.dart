@@ -7,7 +7,7 @@ import '../state/project_controller.dart';
 import 'gantt/gantt_painter.dart';
 
 /// The task grid's columns.
-enum GridColumn { id, name, days, start, finish, links }
+enum GridColumn { id, name, status, days, start, finish, links }
 
 /// Column widths of the task grid. All but [GridColumn.id] can be resized.
 /// Kept in `settings.json`, keyed by the column's name.
@@ -18,6 +18,7 @@ class GridColumns {
   static const defaults = GridColumns._({
     GridColumn.id: 40,
     GridColumn.name: 300,
+    GridColumn.status: 110,
     GridColumn.days: 60,
     GridColumn.start: 100,
     GridColumn.finish: 100,
@@ -28,6 +29,7 @@ class GridColumns {
   static const minimums = {
     GridColumn.id: 40.0,
     GridColumn.name: 80.0,
+    GridColumn.status: 40.0,
     GridColumn.days: 40.0,
     GridColumn.start: 70.0,
     GridColumn.finish: 70.0,
@@ -133,6 +135,7 @@ class TaskGridHeader extends StatelessWidget {
       child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         cell(GridColumn.id, '#', align: TextAlign.right),
         cell(GridColumn.name, 'Task'),
+        cell(GridColumn.status, 'Status', tip: 'Not started, started, done or cancelled. A summary\'s status comes from the tasks under it.'),
         cell(GridColumn.days, 'Days', align: TextAlign.right, tip: 'Working days. 0 makes a milestone.'),
         cell(GridColumn.start, 'Start', tip: 'Type a date to pin the start (start no earlier than). Clear it to unpin.'),
         cell(GridColumn.finish, 'Finish'),
@@ -227,6 +230,7 @@ class TaskGridRow extends StatelessWidget {
     final selected = c.selected == index;
     final bold = d.isSummary ? FontWeight.w600 : FontWeight.w400;
     final pinned = t.startNoEarlierThan != null;
+    final status = p.statusAt(index);
 
     return GestureDetector(
       onTap: () => c.select(index),
@@ -257,6 +261,7 @@ class TaskGridRow extends StatelessWidget {
                   key: ValueKey('name-${t.id}'),
                   value: t.name,
                   weight: bold,
+                  strike: status == TaskStatus.cancelled,
                   onFocus: () => c.select(index),
                   onCommit: (s) {
                     if (s.trim().isEmpty) return false;
@@ -266,6 +271,20 @@ class TaskGridRow extends StatelessWidget {
                 ),
               ),
             ]),
+          ),
+          SizedBox(
+            width: columns[GridColumn.status],
+            child: d.isSummary
+                ? Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: StatusLabel(status, weight: bold))
+                : PopupMenuButton<TaskStatus>(
+                    key: ValueKey('status-${t.id}'),
+                    tooltip: '',
+                    initialValue: status,
+                    onOpened: () => c.select(index),
+                    onSelected: (s) => c.updateTask(index, (x) => x.status == s ? x : x.copyWith(status: s)),
+                    itemBuilder: (_) => [for (final s in TaskStatus.values) PopupMenuItem(value: s, height: 36, child: StatusLabel(s))],
+                    child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: StatusLabel(status)),
+                  ),
           ),
           SizedBox(
             width: columns[GridColumn.days],
@@ -341,6 +360,40 @@ class TaskGridRow extends StatelessWidget {
   }
 }
 
+/// A status as an icon and its name, in the status's colour.
+class StatusLabel extends StatelessWidget {
+  const StatusLabel(this.status, {super.key, this.weight = FontWeight.w400});
+
+  final TaskStatus status;
+  final FontWeight weight;
+
+  static IconData icon(TaskStatus s) => switch (s) {
+        TaskStatus.notStarted => Icons.radio_button_unchecked,
+        TaskStatus.started => Icons.play_circle_outline,
+        TaskStatus.done => Icons.check_circle_outline,
+        TaskStatus.cancelled => Icons.block,
+      };
+
+  static Color color(TaskStatus s) => switch (s) {
+        TaskStatus.notStarted => GanttColors.muted,
+        TaskStatus.started => GanttColors.started,
+        TaskStatus.done => GanttColors.done,
+        TaskStatus.cancelled => GanttColors.muted,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color(status);
+    return Row(children: [
+      Icon(icon(status), size: 14, color: c),
+      const SizedBox(width: 5),
+      Flexible(
+        child: Text(status.label, overflow: TextOverflow.ellipsis, softWrap: false, style: TextStyle(fontSize: 13, fontWeight: weight, color: c)),
+      ),
+    ]);
+  }
+}
+
 class _ReadOnly extends StatelessWidget {
   const _ReadOnly(this.text, {this.weight = FontWeight.w400});
 
@@ -366,6 +419,7 @@ class _EditCell extends StatefulWidget {
     this.weight = FontWeight.w400,
     this.color,
     this.digitsOnly = false,
+    this.strike = false,
   });
 
   final String value;
@@ -375,6 +429,9 @@ class _EditCell extends StatefulWidget {
   final FontWeight weight;
   final Color? color;
   final bool digitsOnly;
+
+  /// Draws a line through the text (a cancelled task's name).
+  final bool strike;
 
   @override
   State<_EditCell> createState() => _EditCellState();
@@ -428,7 +485,12 @@ class _EditCellState extends State<_EditCell> {
       controller: _text,
       focusNode: _focus,
       textAlign: widget.align,
-      style: TextStyle(fontSize: 13, fontWeight: widget.weight, color: widget.color ?? GanttColors.text),
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: widget.weight,
+        color: widget.strike ? GanttColors.muted : (widget.color ?? GanttColors.text),
+        decoration: widget.strike ? TextDecoration.lineThrough : null,
+      ),
       inputFormatters: widget.digitsOnly ? [FilteringTextInputFormatter.digitsOnly] : null,
       decoration: InputDecoration(
         isDense: true,

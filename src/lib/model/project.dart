@@ -28,6 +28,22 @@ class Dependency {
   String toString() => lagDays == 0 ? '$taskId' : '$taskId${lagDays > 0 ? '+' : ''}$lagDays';
 }
 
+/// Where a task stands. A summary's status is worked out from the tasks
+/// under it ([Project.statusAt]); its own is ignored.
+enum TaskStatus {
+  notStarted('Not started'),
+  started('Started'),
+  done('Done'),
+  cancelled('Cancelled');
+
+  const TaskStatus(this.label);
+
+  final String label;
+
+  /// The file's value (the enum name); anything else reads as [notStarted].
+  static TaskStatus fromJson(Object? v) => values.firstWhere((s) => s.name == v, orElse: () => notStarted);
+}
+
 /// One row of the plan. A task followed by rows with a deeper [outlineLevel]
 /// is a summary: its dates come from those rows, and its own duration is
 /// ignored. A leaf with [durationDays] 0 is a milestone.
@@ -41,6 +57,7 @@ class Task {
     this.startNoEarlierThan,
     this.percentComplete = 0,
     this.notes = '',
+    this.status = TaskStatus.notStarted,
   });
 
   /// Stable across edits and reordering; dependencies point at it.
@@ -59,6 +76,7 @@ class Task {
   final DateTime? startNoEarlierThan;
   final int percentComplete;
   final String notes;
+  final TaskStatus status;
 
   bool get isMilestone => durationDays == 0;
 
@@ -71,6 +89,7 @@ class Task {
     bool clearStartNoEarlierThan = false,
     int? percentComplete,
     String? notes,
+    TaskStatus? status,
   }) =>
       Task(
         id: id,
@@ -81,6 +100,7 @@ class Task {
         startNoEarlierThan: clearStartNoEarlierThan ? null : (startNoEarlierThan ?? this.startNoEarlierThan),
         percentComplete: percentComplete ?? this.percentComplete,
         notes: notes ?? this.notes,
+        status: status ?? this.status,
       );
 }
 
@@ -130,6 +150,23 @@ class Project {
   /// True when the row at [index] has rows under it.
   bool isSummaryAt(int index) =>
       index + 1 < tasks.length && tasks[index + 1].outlineLevel > tasks[index].outlineLevel;
+
+  /// The status of the row at [index]. For a summary, worked out from the
+  /// tasks under it, leaving out cancelled ones: Done when all are done,
+  /// Started when any is started or done, else Not started. A summary whose
+  /// tasks are all cancelled is Cancelled.
+  TaskStatus statusAt(int index) {
+    if (!isSummaryAt(index)) return tasks[index].status;
+    final level = tasks[index].outlineLevel;
+    final under = <TaskStatus>[];
+    for (var i = index + 1; i < tasks.length && tasks[i].outlineLevel > level; i++) {
+      if (!isSummaryAt(i) && tasks[i].status != TaskStatus.cancelled) under.add(tasks[i].status);
+    }
+    if (under.isEmpty) return TaskStatus.cancelled;
+    if (under.every((s) => s == TaskStatus.done)) return TaskStatus.done;
+    if (under.any((s) => s != TaskStatus.notStarted)) return TaskStatus.started;
+    return TaskStatus.notStarted;
+  }
 
   factory Project.blank({DateTime? start}) {
     final s = dateOnly(start ?? DateTime.now());

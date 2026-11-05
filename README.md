@@ -34,6 +34,7 @@ To use Flutter directly: `cd src && fvm flutter <command>`.
 The app reopens the last project you opened or saved. On a first start (or if that file has been moved or deleted) it shows a sample plan, "Website relaunch", an ordinary `.ganttly` file bundled with the app (`src/assets/samples/`). New starts an empty project.
 
 - **Grid:** click a cell to edit; Enter or clicking away saves it. An invalid entry flashes red and goes back.
+  - **Status:** click to pick Not started, Started, Done or Cancelled. A cancelled task's name is struck through. A summary's status comes from the tasks under it (cancelled ones left out): Done when all are done, Started when any has started or is done. Status doesn't change the schedule or the chart.
   - **Days:** working days. `0` makes a milestone.
   - **Start:** shows the worked-out start. Typing a date (`11/16`, `2026-11-16`) pins it: the task starts no earlier than that. Clear it to unpin. Pinned starts are shown in blue with a pin.
   - **After:** predecessor task numbers, e.g. `2, 5+3` (after task 2, and 3 working days after task 5).

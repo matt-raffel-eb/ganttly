@@ -55,6 +55,10 @@ class GanttColors {
   static const problem = Color(0xFFD93025);
   static const link = Color(0xFF8A8FA0);
 
+  /// Task status colours (the grid's Status column and the PNG's table).
+  static const started = Color(0xFF3D5AFE);
+  static const done = Color(0xFF2E7D32);
+
   /// One colour per top-level block, in order.
   static const palette = [
     Color(0xFF4472C4),

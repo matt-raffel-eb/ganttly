@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ganttly/main.dart';
+import 'package:ganttly/model/project.dart';
 import 'package:ganttly/state/project_controller.dart';
 import 'package:ganttly/ui/gantt/gantt_painter.dart';
 import 'package:ganttly/ui/gantt/png_export.dart';
@@ -36,6 +37,34 @@ void main() {
     expect(find.byTooltip('/Users/me/plans/website-relaunch.ganttly'), findsOneWidget);
   });
 
+  testWidgets('the Status column: pick a status from the menu; summaries show their tasks\' status', (tester) async {
+    final c = await pumpApp(tester);
+    final row = c.project.tasks.indexWhere((t) => t.name == 'Stakeholder interviews');
+    final id = c.project.tasks[row].id;
+    final discovery = c.project.tasks.indexWhere((t) => t.name == 'Discovery');
+    expect(find.byKey(ValueKey('status-${c.project.tasks[discovery].id}')), findsNothing, reason: 'a summary has no menu');
+
+    await tester.tap(find.byKey(ValueKey('status-$id')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Started').last);
+    await tester.pumpAndSettle();
+    expect(c.project.tasks[row].status, TaskStatus.started);
+    expect(c.selected, row);
+    expect(c.project.statusAt(discovery), TaskStatus.started);
+    expect(find.text('Started'), findsNWidgets(2), reason: 'the task and its summary');
+
+    await tester.tap(find.byKey(ValueKey('status-$id')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancelled').last);
+    await tester.pumpAndSettle();
+    final name = tester.widget<TextField>(find.descendant(of: find.byKey(ValueKey('name-$id')), matching: find.byType(TextField)));
+    expect(name.style?.decoration, TextDecoration.lineThrough);
+
+    c.undo();
+    await tester.pump();
+    expect(c.project.tasks[row].status, TaskStatus.started);
+  });
+
   testWidgets('editing a duration in the grid moves the plan and the deadline status', (tester) async {
     final c = await pumpApp(tester);
     final row = c.project.tasks.indexWhere((t) => t.name == 'Fix issues');
@@ -56,7 +85,7 @@ void main() {
     expect(pos().maxScrollExtent, greaterThan(0), reason: 'the chart is wider than the window');
     final header = find.byWidgetPredicate((w) => w is CustomPaint && w.painter is GanttHeaderPainter);
     final pointer = TestPointer(1, PointerDeviceKind.mouse);
-    await tester.sendEventToBinding(pointer.hover(tester.getCenter(header)));
+    await tester.sendEventToBinding(pointer.hover(tester.getTopLeft(header) + const Offset(40, 20)));
     await tester.sendEventToBinding(pointer.scroll(const Offset(0, 120)));
     await tester.pump();
     expect(pos().pixels, 120);
