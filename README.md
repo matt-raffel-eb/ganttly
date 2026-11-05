@@ -38,6 +38,7 @@ The app reopens the last project you opened or saved. On a first start (or if th
   - **Start:** shows the worked-out start. Typing a date (`11/16`, `2026-11-16`) pins it: the task starts no earlier than that. Clear it to unpin. Pinned starts are shown in blue with a pin.
   - **After:** predecessor task numbers, e.g. `2, 5+3` (after task 2, and 3 working days after task 5).
   - Indent a task under the one above to make that one a summary; its dates then come from the tasks under it.
+  - **Column widths:** drag the right edge of a column title to resize it; double-click a title to restore its default width. Drag the line between the grid and the chart to give either more room (the grid then scrolls sideways); double-click it to fit the columns again. The chart always keeps at least 200 px. Widths are remembered between launches.
 - **Chart:** bars skip weekends and holidays; summaries are dark brackets; milestones are diamonds; arrows show links; the dotted line is today; the red column is the deadline. Click a row to select it.
   - **Scroll:** up and down with the wheel; sideways with the scrollbar at the bottom, the wheel over the date header, Shift + wheel, or a trackpad swipe.
   - **Zoom:** the toolbar's − / + buttons (the percentage between them resets to 100%), ⌘ + scroll wheel over the chart (zooms where the pointer is), or Fit to see the whole plan.

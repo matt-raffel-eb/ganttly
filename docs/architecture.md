@@ -34,6 +34,8 @@ The whole schedule is recomputed after every edit. That's simple and plenty fast
 
 On screen, the date header is pinned and follows the chart sideways. The rows scroll both ways, with both scrollbars always shown at the window's edges. The grid and the chart scroll up and down together (scroll controllers kept in step). The scroll views don't handle two things on their own, so a `Listener` does: the wheel over the header scrolls sideways, and ⌘/Ctrl + wheel zooms around the pointer. Zoom is the width of a day in pixels (22 = 100%, 4 to 64).
 
+The task grid's column widths (`GridColumns` in `ui/task_grid.dart`) and the grid's width (set with the divider; null means as wide as its columns) are window state in `home_page.dart`, like the zoom, and are saved in `settings.json` after each drag or reset. They never go in the project file. The chart always keeps at least 200 px, so a column can't grow past that and, in a narrow window, the grid scrolls sideways.
+
 ## Packages
 
 Only `file_selector` (official, from the Flutter team) for the open and save dialogs. Keep it that way unless a feature clearly needs more.
@@ -41,6 +43,6 @@ Only `file_selector` (official, from the Flutter team) for the open and save dia
 ## Platform notes
 
 - macOS: minimum 12.0. The App Sandbox is **off**, so the app can reopen the last project after a restart (a sandboxed app may only read a file in the session the user picked it, unless it stores security-scoped bookmarks). A Mac App Store release would need the sandbox back on, plus bookmarks.
-- Settings live in `~/Library/Application Support/Ganttly/settings.json` (macOS), `%APPDATA%\Ganttly` (Windows) or `~/.config/ganttly` (Linux).
+- Settings (the last project, the grid's column widths and width) live in `~/Library/Application Support/Ganttly/settings.json` (macOS), `%APPDATA%\Ganttly` (Windows) or `~/.config/ganttly` (Linux).
 - macOS release builds are **Apple Silicon (arm64) only** for now: `ARCHS = arm64` in the project's Release and Profile settings (`src/macos/Runner.xcodeproj`). Flutter 3.44 checks the framework with `lipo -verify_arch arm64 x86_64`, and Xcode 27's `lipo` accepts only one architecture there, so a universal build fails ("does not contain architectures"). Remove the two `ARCHS = arm64` lines once Flutter fixes this, to get Intel support back. Debug builds were never affected (they build for this Mac only).
 - Window: 1440 × 860 by default (macOS, Windows, Linux runners).

@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -5,53 +6,217 @@ import '../model/project.dart';
 import '../state/project_controller.dart';
 import 'gantt/gantt_painter.dart';
 
-/// Column widths of the task grid.
+/// The task grid's columns.
+enum GridColumn { id, name, days, start, finish, links }
+
+/// Column widths of the task grid. All but [GridColumn.id] can be resized.
+/// Kept in `settings.json`, keyed by the column's name.
 class GridColumns {
-  static const id = 40.0;
-  static const name = 300.0;
-  static const days = 60.0;
-  static const start = 100.0;
-  static const finish = 100.0;
-  static const links = 110.0;
-  static const width = id + name + days + start + finish + links;
+  const GridColumns._(this._widths);
+
+  /// The default widths.
+  static const defaults = GridColumns._({
+    GridColumn.id: 40,
+    GridColumn.name: 300,
+    GridColumn.days: 60,
+    GridColumn.start: 100,
+    GridColumn.finish: 100,
+    GridColumn.links: 110,
+  });
+
+  /// The narrowest each column can be made.
+  static const minimums = {
+    GridColumn.id: 40.0,
+    GridColumn.name: 80.0,
+    GridColumn.days: 40.0,
+    GridColumn.start: 70.0,
+    GridColumn.finish: 70.0,
+    GridColumn.links: 50.0,
+  };
+
+  final Map<GridColumn, double> _widths;
+
+  double operator [](GridColumn c) => _widths[c]!;
+
+  /// All the columns together.
+  double get width => _widths.values.fold(0, (a, b) => a + b);
+
+  static bool resizable(GridColumn c) => c != GridColumn.id;
+
+  /// [c] at [width] (whole pixels), kept to its minimum.
+  GridColumns resized(GridColumn c, double width) {
+    if (!resizable(c)) return this;
+    final w = width < minimums[c]! ? minimums[c]! : width.roundToDouble();
+    return GridColumns._({..._widths, c: w});
+  }
+
+  Map<String, double> toJson() => {for (final c in GridColumn.values.where(resizable)) c.name: this[c]};
+
+  /// Reads the widths saved in the settings. A missing or bad value takes its default.
+  static GridColumns fromJson(Object? json) {
+    var cols = defaults;
+    if (json is! Map) return cols;
+    for (final c in GridColumn.values.where(resizable)) {
+      final v = json[c.name];
+      if (v is num && v.isFinite && v > 0 && v < 5000) cols = cols.resized(c, v.toDouble());
+    }
+    return cols;
+  }
 }
 
+/// The grid's column titles. Drag a title's right edge to resize its column;
+/// double-click anywhere on a title to give the column its default width.
 class TaskGridHeader extends StatelessWidget {
-  const TaskGridHeader({super.key});
+  const TaskGridHeader({super.key, required this.columns, this.onResize, this.onResizeEnd, this.maxGrowth = double.infinity});
+
+  final GridColumns columns;
+
+  /// Called while dragging, and on a double-click, with the column's new width.
+  final void Function(GridColumn column, double width)? onResize;
+
+  /// Called when a drag or a double-click is done, to save the widths.
+  final VoidCallback? onResizeEnd;
+
+  /// How much wider all the columns together may get (the chart needs the rest).
+  final double maxGrowth;
 
   @override
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600);
-    Widget cell(String text, double w, {TextAlign align = TextAlign.left, String? tip}) => SizedBox(
-          width: w,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: Tooltip(message: tip ?? '', child: Text(text, style: style, textAlign: align)),
-          ),
-        );
+    Widget cell(GridColumn col, String text, {TextAlign align = TextAlign.left, String? tip}) {
+      final w = columns[col];
+      final title = Padding(
+        padding: const EdgeInsets.only(left: 6, right: 6, bottom: 6),
+        child: Tooltip(message: tip ?? '', child: Text(text, style: style, textAlign: align)),
+      );
+      final resize = onResize;
+      if (!GridColumns.resizable(col) || resize == null) {
+        return SizedBox(width: w, child: Align(alignment: Alignment.bottomLeft, child: SizedBox(width: w, child: title)));
+      }
+      return SizedBox(
+        width: w,
+        child: GestureDetector(
+          key: ValueKey('header-${col.name}'),
+          behavior: HitTestBehavior.opaque,
+          onDoubleTap: () {
+            resize(col, GridColumns.defaults[col]);
+            onResizeEnd?.call();
+          },
+          child: Stack(children: [
+            Positioned(left: 0, right: 0, bottom: 0, child: title),
+            Positioned(
+              top: 0,
+              bottom: 0,
+              right: 0,
+              width: 6,
+              child: ResizeHandle(
+                key: ValueKey('resize-${col.name}'),
+                lineAt: Alignment.centerRight,
+                lineInset: 10,
+                onStart: () => columns[col],
+                onDrag: (start, dx) {
+                  // Shrinking is always allowed; growing stops where the chart would get too narrow.
+                  final now = columns[col], want = start + dx, cap = now + maxGrowth;
+                  resize(col, want <= now || want <= cap ? want : (cap > now ? cap : now));
+                },
+                onEnd: onResizeEnd,
+              ),
+            ),
+          ]),
+        ),
+      );
+    }
+
     return Container(
       height: GanttLayout.headerHeight,
-      alignment: Alignment.bottomLeft,
-      padding: const EdgeInsets.only(bottom: 6),
       decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: GanttColors.weekLine))),
-      child: Row(children: [
-        cell('#', GridColumns.id, align: TextAlign.right),
-        cell('Task', GridColumns.name),
-        cell('Days', GridColumns.days, align: TextAlign.right, tip: 'Working days. 0 makes a milestone.'),
-        cell('Start', GridColumns.start, tip: 'Type a date to pin the start (start no earlier than). Clear it to unpin.'),
-        cell('Finish', GridColumns.finish),
-        cell('After', GridColumns.links, tip: 'Predecessor task numbers, e.g. "2, 5+3" (5 plus 3 working days).'),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        cell(GridColumn.id, '#', align: TextAlign.right),
+        cell(GridColumn.name, 'Task'),
+        cell(GridColumn.days, 'Days', align: TextAlign.right, tip: 'Working days. 0 makes a milestone.'),
+        cell(GridColumn.start, 'Start', tip: 'Type a date to pin the start (start no earlier than). Clear it to unpin.'),
+        cell(GridColumn.finish, 'Finish'),
+        cell(GridColumn.links, 'After', tip: 'Predecessor task numbers, e.g. "2, 5+3" (5 plus 3 working days).'),
       ]),
+    );
+  }
+}
+
+/// A thin strip that shows a line and the resize cursor, and reports a
+/// sideways drag: [onDrag] gets the value [onStart] returned when the drag
+/// began and how far the pointer has moved since the button went down. The
+/// line darkens while the pointer is over it or dragging.
+class ResizeHandle extends StatefulWidget {
+  const ResizeHandle({
+    super.key,
+    required this.onStart,
+    required this.onDrag,
+    this.onEnd,
+    this.onDoubleTap,
+    this.lineAt = Alignment.center,
+    this.lineInset = 0,
+  });
+
+  final double Function() onStart;
+  final void Function(double start, double dx) onDrag;
+  final VoidCallback? onEnd;
+  final VoidCallback? onDoubleTap;
+
+  /// Where the line sits across the strip.
+  final Alignment lineAt;
+
+  /// Space above and below the line.
+  final double lineInset;
+
+  @override
+  State<ResizeHandle> createState() => _ResizeHandleState();
+}
+
+class _ResizeHandleState extends State<ResizeHandle> {
+  double _start = 0, _downX = 0;
+  bool _hover = false, _dragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = _hover || _dragging;
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        dragStartBehavior: DragStartBehavior.down,
+        onDoubleTap: widget.onDoubleTap,
+        onHorizontalDragStart: (d) {
+          _start = widget.onStart();
+          _downX = d.globalPosition.dx;
+          setState(() => _dragging = true);
+        },
+        onHorizontalDragUpdate: (d) => widget.onDrag(_start, d.globalPosition.dx - _downX),
+        onHorizontalDragEnd: (_) {
+          setState(() => _dragging = false);
+          widget.onEnd?.call();
+        },
+        onHorizontalDragCancel: () => setState(() => _dragging = false),
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: widget.lineInset),
+          child: Align(
+            alignment: widget.lineAt,
+            child: Container(width: active ? 2 : 1, color: active ? GanttColors.muted : GanttColors.weekLine),
+          ),
+        ),
+      ),
     );
   }
 }
 
 /// One editable row; the height matches the chart's rows.
 class TaskGridRow extends StatelessWidget {
-  const TaskGridRow({super.key, required this.controller, required this.index});
+  const TaskGridRow({super.key, required this.controller, required this.index, required this.columns});
 
   final ProjectController controller;
   final int index;
+  final GridColumns columns;
 
   @override
   Widget build(BuildContext context) {
@@ -74,14 +239,14 @@ class TaskGridRow extends StatelessWidget {
         ),
         child: Row(children: [
           SizedBox(
-            width: GridColumns.id,
+            width: columns[GridColumn.id],
             child: Padding(
               padding: const EdgeInsets.only(right: 6),
               child: Text('${t.id}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 12, color: GanttColors.muted)),
             ),
           ),
           SizedBox(
-            width: GridColumns.name,
+            width: columns[GridColumn.name],
             child: Row(children: [
               SizedBox(width: 6 + t.outlineLevel * 16.0),
               if (d.problem != null)
@@ -103,7 +268,7 @@ class TaskGridRow extends StatelessWidget {
             ]),
           ),
           SizedBox(
-            width: GridColumns.days,
+            width: columns[GridColumn.days],
             child: d.isSummary
                 ? Padding(
                     padding: const EdgeInsets.only(right: 6),
@@ -125,7 +290,7 @@ class TaskGridRow extends StatelessWidget {
                   ),
           ),
           SizedBox(
-            width: GridColumns.start,
+            width: columns[GridColumn.start],
             child: d.isSummary
                 ? _ReadOnly(formatDay(d.start), weight: bold)
                 : Row(children: [
@@ -155,9 +320,9 @@ class TaskGridRow extends StatelessWidget {
                       ),
                   ]),
           ),
-          SizedBox(width: GridColumns.finish, child: _ReadOnly(formatDay(d.finish), weight: bold)),
+          SizedBox(width: columns[GridColumn.finish], child: _ReadOnly(formatDay(d.finish), weight: bold)),
           SizedBox(
-            width: GridColumns.links,
+            width: columns[GridColumn.links],
             child: _EditCell(
               key: ValueKey('links-${t.id}'),
               value: formatDependencies(t.dependencies),

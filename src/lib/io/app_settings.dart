@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
-/// Small per-user settings kept between launches (`settings.json`): for now,
-/// the last project opened or saved, so the app reopens it.
+/// Small per-user settings kept between launches (`settings.json`): the last
+/// project opened or saved, so the app reopens it, and the task grid's column
+/// widths and width.
 ///
 /// Stored in the usual place for each system:
 /// - macOS: ~/Library/Application Support/Ganttly
@@ -63,6 +64,32 @@ class AppSettings {
       if (_file.existsSync()) _file.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(s));
     } on Exception {
       // Ignore, as above.
+    }
+  }
+
+  /// The saved grid column widths by column name, or null if none were saved.
+  Object? get gridColumns => _grid['columns'];
+
+  /// The saved width of the grid pane, or null: as wide as its columns.
+  double? get gridWidth {
+    final v = _grid['width'];
+    return v is num && v.isFinite && v > 0 ? v.toDouble() : null;
+  }
+
+  Map<dynamic, dynamic> get _grid {
+    final g = _read()['grid'];
+    return g is Map ? g : const {};
+  }
+
+  /// Remembers the grid's column widths and its width (null: as wide as its
+  /// columns). Never throws, like [rememberProject].
+  void rememberGrid({required Map<String, double> columns, double? width}) {
+    try {
+      final s = _read()..['grid'] = {'columns': columns, 'width': ?width};
+      directory.createSync(recursive: true);
+      _file.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(s));
+    } on Exception {
+      // Ignore: the grid just opens at its default widths next time.
     }
   }
 }
