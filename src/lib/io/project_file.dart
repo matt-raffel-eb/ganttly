@@ -43,6 +43,7 @@ class ProjectFile {
               if (t.startNoEarlierThan != null) 'startNoEarlierThan': _date(t.startNoEarlierThan!),
               if (t.percentComplete != 0) 'percentComplete': t.percentComplete,
               if (t.notes.isNotEmpty) 'notes': t.notes,
+              if (t.status != TaskStatus.notStarted) 'status': t.status.name,
             },
         ],
       };
@@ -68,6 +69,7 @@ class ProjectFile {
             startNoEarlierThan: t['startNoEarlierThan'] == null ? null : _parse(t['startNoEarlierThan']),
             percentComplete: t['percentComplete'] as int? ?? 0,
             notes: t['notes'] as String? ?? '',
+            status: TaskStatus.fromJson(t['status']),
           ),
       ];
       final ids = tasks.map((t) => t.id).toSet();

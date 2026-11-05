@@ -4,16 +4,19 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../engine/scheduler.dart';
+import '../../model/project.dart';
+import '../task_grid.dart';
 import 'gantt_painter.dart';
 
 /// The whole chart as a PNG, not just the part on screen: a title, a task
-/// table (name, start, finish) and the chart, drawn by the same painters as
+/// table (name, status, start, finish) and the chart, drawn by the same painters as
 /// the screen.
 Future<Uint8List> ganttPng(GanttLayout layout, {double pixelRatio = 2}) async {
   final s = layout.schedule;
   final p = s.project;
   const titleHeight = 56.0;
-  const tableWidth = 420.0;
+  const tableWidth = 520.0;
+  const statusX = tableWidth - 250;
   const pad = 16.0;
   final width = pad + tableWidth + layout.width + pad;
   final height = titleHeight + GanttLayout.headerHeight + layout.rowsHeight + pad;
@@ -33,6 +36,7 @@ Future<Uint8List> ganttPng(GanttLayout layout, {double pixelRatio = 2}) async {
   c.save();
   c.translate(pad, titleHeight);
   paintGanttText(c, 'Task', const Offset(4, 26), 11, bold: true);
+  paintGanttText(c, 'Status', const Offset(statusX, 26), 11, bold: true);
   paintGanttText(c, 'Start', const Offset(tableWidth - 150, 26), 11, bold: true);
   paintGanttText(c, 'Finish', const Offset(tableWidth - 76, 26), 11, bold: true);
   c.drawLine(const Offset(0, GanttLayout.headerHeight - 0.5), const Offset(tableWidth, GanttLayout.headerHeight - 0.5),
@@ -42,8 +46,12 @@ Future<Uint8List> ganttPng(GanttLayout layout, {double pixelRatio = 2}) async {
     final d = s[t.id];
     final y = GanttLayout.headerHeight + r * GanttLayout.rowHeight;
     final indent = 4 + t.outlineLevel * 14.0;
-    paintGanttText(c, t.name, Offset(indent, y + 7), 11,
-        bold: d.isSummary, maxWidth: tableWidth - 160 - indent, color: d.problem != null ? GanttColors.problem : GanttColors.text);
+    final status = p.statusAt(r);
+    final nameColor = d.problem != null
+        ? GanttColors.problem
+        : (status == TaskStatus.cancelled ? GanttColors.muted : GanttColors.text);
+    paintGanttText(c, t.name, Offset(indent, y + 7), 11, bold: d.isSummary, maxWidth: statusX - 10 - indent, color: nameColor);
+    paintGanttText(c, status.label, Offset(statusX, y + 7), 11, bold: d.isSummary, color: StatusLabel.color(status));
     paintGanttText(c, _d(d.start), Offset(tableWidth - 150, y + 7), 11, bold: d.isSummary);
     paintGanttText(c, _d(d.finish), Offset(tableWidth - 76, y + 7), 11, bold: d.isSummary);
     c.drawLine(Offset(0, y + GanttLayout.rowHeight - 0.5), Offset(tableWidth, y + GanttLayout.rowHeight - 0.5),
