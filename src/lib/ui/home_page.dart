@@ -332,9 +332,13 @@ class _Toolbar extends StatelessWidget {
           gap(),
           btn(Icons.tune, 'Project settings', () => showProjectSettings(context, c)),
           const Spacer(),
-          Text(
-            '${file ?? 'Not saved yet'}${c.isDirty ? ' — edited' : ''}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: GanttColors.muted),
+          // Hover for the full path (the last project reopens on start-up).
+          Tooltip(
+            message: c.filePath ?? 'Not saved to a file yet',
+            child: Text(
+              '${file ?? 'Not saved yet'}${c.isDirty ? ' — edited' : ''}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: GanttColors.muted),
+            ),
           ),
           const SizedBox(width: 8),
         ]),

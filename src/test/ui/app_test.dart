@@ -27,6 +27,15 @@ void main() {
     expect(find.byWidgetPredicate((w) => w is CustomPaint && w.painter is GanttBodyPainter), findsOneWidget);
   });
 
+  testWidgets('the toolbar file name shows the full path on hover', (tester) async {
+    final c = await pumpApp(tester);
+    expect(find.byTooltip('Not saved to a file yet'), findsOneWidget);
+    c.saved('/Users/me/plans/website-relaunch.ganttly');
+    await tester.pump();
+    expect(find.text('website-relaunch.ganttly'), findsOneWidget);
+    expect(find.byTooltip('/Users/me/plans/website-relaunch.ganttly'), findsOneWidget);
+  });
+
   testWidgets('editing a duration in the grid moves the plan and the deadline status', (tester) async {
     final c = await pumpApp(tester);
     final row = c.project.tasks.indexWhere((t) => t.name == 'Fix issues');
